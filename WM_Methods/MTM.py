@@ -1,19 +1,69 @@
+from tkinter import W
 import cvxpy as cp
+import numpy as np
 
-def optimise(a,b,c,d,cons,weights):
-    m = a.shape[0]
-    n = a.shape[1]
+def optimise(tracers,volumes,cons_matrix,weights, solver = 'ECOS'):
+    '''
+    This function takes matrices of tracers, volumes, weights, and constraints, 
+    and produces an optimal transport estimate (g_ij) based on these constraints.
+    Inputs:
+    volumes: A [2 x N] array of volumes/masses corresponding to the early and late watermasses
+    tracers: A [2 x M x N]  array of tracers, where N is the number of watermasses, M is the number of distinct tracers, and 2 corresponds to the early and late watermasses
+    For just T and S, M = 2. Other tracers such as carbon may be added to this matrix.
+    cons_matrix: A [N X N] matrix defining the connectivity from one 'N' watermass to any other 'N' watermass. 
+    The elements in this matrix must be between 0 (no connection) and 1 (fully connected).
+    weights: An [M x N] matrix defining any tracer-specific weights to scale the transports by watermass, 
+    for instance, outcrop surface area, or a T/S scaling factor. 
+    OPTIONAL: 
+    solver: The CVXPY solver to use in the optimiser. 
+    Default is 'ECOS', but it is HIGHLY recommended that a free academic license to MOSEK is installed in your machine to use 
+    'MOSEK' instead. 
 
-    x = cp.Variable(n)
+    Outputs:
+    g_ij: A transport matrix of size [N x N] which represents the transport from one watermass to another. 
+    '''
+    
+    ## Define matrices for the linear optimisation
 
-    cost = cp.sum_squares(a@x-b)
+    N = volumes.shape[-1]
 
-    constraints = [c@x==d, x>0]
+    nofaces = np.nansum(cons_matrix)
+    C1_connec=np.zeros((N,int(nofaces)))
+    C2_connec=np.zeros((N,int(nofaces)))
+    # Also make T and S matrix with the T(k,i) the temp of the ith early WM
+    Tmatrix=np.zeros((N,int(nofaces)))
+    Smatrix=np.zeros((N,int(nofaces)))
+
+    ix=0
+    for i in (range(N)):
+        for j in range(N):
+            if cons_matrix[i,j]>0:
+                C1_connec[i,ix] = cons_matrix[i,j] # vertex ix connects from WM i
+                C2_connec[j,ix] = cons_matrix[i,j] # vertex ix connects to WM j
+                Tmatrix[j,ix] = tracers[0,1,i]*weights[1,i] #vertex ix brings temp of WM i to WM j
+                Smatrix[j,ix] = tracers[0,0,i]*weights[0,i] #vertex ix brings temp of WM i to WM j
+                ix=ix+1
+
+    C = np.concatenate((C1_connec,C2_connec),axis=0)
+    A = np.concatenate((Tmatrix,Smatrix),axis=0)
+    b = np.concatenate((volumes[1,:]*tracers[1,1,:]*weights[1,:],\
+                    volumes[1,:]*tracers[1,0,:]*weights[0,:]), axis=0)
+    b[np.isnan(b)]=0
+    d = np.concatenate((volumes[0,:],volumes[1,:]),axis=0)
+
+    ## Invoke solver to calculate transports
+    u = A.shape[1]
+
+    x = cp.Variable(u)
+
+    cost = cp.sum_squares(A@x-b)
+
+    constraints = [C@x==d, x>=0]
     prob = cp.Problem(cp.Minimize(cost), constraints)
 
     # The optimal objective value is returned by prob.solve()`.
     # OSQP, ECOS, ECOS_BB, MOSEK, CBC, CVXOPT, NAG, GUROBI, and SCS
-    result = prob.solve(verbose=True, solver=cp.ECOS)
+    result = prob.solve(verbose=True, solver=cp.MOSEK)
 
     if prob.status not in ["infeasible", "unbounded"]:
         # Otherwise, problem.value is inf or -inf, respectively.
@@ -23,38 +73,36 @@ def optimise(a,b,c,d,cons,weights):
 
     # The optimal value for x is stored in `x.value`.
     g_ij = x.value
-    return g_ij
 
-def mix_adj(trans,T,S,V):
+    ## Convert g_ij from a long [1 x N^2] matrix to an [N x N] matrix
+
+    G = np.zeros((N,N))
+    ix=0
+    for i in (range(N)):
+        for j in range(N):
+            if cons_matrix[i,j]>0:
+                G[i,j] = g_ij[ix]
+                ix=ix+1   
+
     # This is the temperature and salinity the late water masses acheive by mixing the early water masses
-    Tmixed = np.matmul(Tmatrix,xxx)/(flat_Vol_blc2/xnorming) #Changed from flat_vol_blc1
+    Tmixed = np.matmul(Tmatrix,g_ij)/volumes[1,:]
     Tmixed[~np.isfinite(Tmixed)]= np.nan
     Tmixed[Tmixed>100] = np.nan
-    Smixed = np.matmul(Smatrix,xxx)/(flat_Vol_blc2/xnorming) #Changed from flat_vol_blc1
+    Smixed = np.matmul(Smatrix,g_ij)/volumes[1,:]
     Smixed[~np.isfinite(Smixed)]= np.nan
     Smixed[Smixed>10**4] = np.nan
 
     # Now the necessary heat and salt adjustment is simply the difference
     # between this and what we actually get
-    dTV_adj = (flat_T_blc2-Tmixed)*flat_Vol_blc2
-    dSV_adj = (flat_S_blc2-Smixed)*flat_Vol_blc2
-
-    # Dividing by the volume we get the average temperature change.
-    T_Av_adj = dTV_adj/(flat_Vol_blc2)
+    T_Av_adj = (tracers[1,1,:]-Tmixed)
     T_Av_adj[np.isnan(T_Av_adj)] = 0
-    S_Av_adj = dSV_adj/(flat_Vol_blc2)
-    S_Av_adj[np.isnan(S_Av_adj)]= 0
-    G = np.zeros((flat_Vol_blc1.shape[0],flat_Vol_blc2.shape[0]))
-    ix=0
-    for i in tqdm(range(flat_Vol_blc1.size)):
-        for j in range(flat_Vol_blc2.size):
-            if globe == False:
-                if connected[i,j]==1:
-                    G[i,j] = xxx[ix] #vertex ix brings temp of WM i to WM j
-                    ix=ix+1
-            else:
-                if connected[i,j]==1:
-                    G[i,j] = xxx[ix]
-                    ix=ix+1    
 
-    return g_i
+    S_Av_adj = (tracers[1,0,:]-Smixed)
+    S_Av_adj[np.isnan(S_Av_adj)]= 0
+
+    Smixed[~np.isfinite(Smixed)]=0
+    Tmixed[~np.isfinite(Tmixed)]=0
+    dTmix = np.matmul(G,Tmixed)/volumes[0,:]-tracers[0,1,:]
+    dSmix = np.matmul(G,Smixed)/volumes[0,:]-tracers[0,0,:]
+
+    return {'g_ij':G, 'dS_mixing':dSmix, 'dT_mixing':dTmix, 'dS_adj':S_Av_adj, 'dT_adj':T_Av_adj}

@@ -46,24 +46,35 @@ def remap_3D(T,S, partitions, depth = 1, zonal_int = False, depth_int = False, *
     ds_out = ds_out.rename({'lon': str(dimensions[2]), 'lat': str(dimensions[1])})
     ## Looping through time and tree depth, create a mask which is 1 in all Eulerian grid cells that satisfy the WM grid boundaries
     for i in tqdm(range(T.shape[0])):
-        for j in (range(partitions.shape[1])):
+        for j in (range(2**depth)):
             da_fuzz[j,i] = xr.where((S.isel(time=i)>partitions[i,j,0])&\
                                     (T.isel(time=i)>partitions[i,j,2])&\
                                     (S.isel(time=i)<=partitions[i,j,1])&\
                                     (T.isel(time=i)<=partitions[i,j,3]),\
-                                     1, 0)
-            ## Regrid output to a 1x1 grid using bilinear interpolation
-            regridder_da_fuzz = xesmf.Regridder(da_fuzz, ds_out, 'bilinear', periodic=True)
-            da_fuzz_regridded = regridder_da_fuzz(da_fuzz)
+                                    1, 0)
+            if interp:
+                ## Regrid output to a 1x1 grid using bilinear interpolation
+                regridder_da_fuzz = xesmf.Regridder(da_fuzz, ds_out, 'bilinear', periodic=True)
+                da_fuzz_regridded = regridder_da_fuzz(da_fuzz)
     
     ## Depending on the flags, output a 3D mask file, or a zonally or depth-integrated mask file, for all bins. 
-
-    if not (zonal_int or depth_int):
-        return da_fuzz_regridded.sum(str(dimensions[0]))/da_fuzz_regridded.sum(str(dimensions[0])).sum('tree_depth')
-    if zonal_int and not depth_int:
-        return (da_fuzz_regridded.sum('x').sum(str(dimensions[0])))/(da_fuzz_regridded.sum('x').sum(str(dimensions[0]))).sum('tree_depth')
-    if (zonal_int & depth_int):
-        return (da_fuzz_regridded.sum('x').sum(str(dimensions[0])))/(da_fuzz_regridded.sum('x').sum(str(dimensions[0]))).sum('tree_depth'), \
-            (da_fuzz_regridded.sum(str(dimensions[-1])).sum(str(dimensions[0])))/(da_fuzz_regridded.sum(str(dimensions[-1])).sum(str(dimensions[0]))).sum('tree_depth')
-    if depth_int and not zonal_int:
-        return (da_fuzz_regridded.sum(str(dimensions[-1])).sum(str(dimensions[0])))/(da_fuzz_regridded.sum(str(dimensions[-1])).sum(str(dimensions[0]))).sum('tree_depth')
+    if interp:
+        if not (zonal_int or depth_int):
+            return da_fuzz_regridded.sum(str(dimensions[0]))/da_fuzz_regridded.sum(str(dimensions[0])).sum('tree_depth')
+        if zonal_int and not depth_int:
+            return (da_fuzz_regridded.sum('x').sum(str(dimensions[0])))/(da_fuzz_regridded.sum('x').sum(str(dimensions[0]))).sum('tree_depth')
+        if (zonal_int & depth_int):
+            return (da_fuzz_regridded.sum('x').sum(str(dimensions[0])))/(da_fuzz_regridded.sum('x').sum(str(dimensions[0]))).sum('tree_depth'), \
+                (da_fuzz_regridded.sum(str(dimensions[-1])).sum(str(dimensions[0])))/(da_fuzz_regridded.sum(str(dimensions[-1])).sum(str(dimensions[0]))).sum('tree_depth')
+        if depth_int and not zonal_int:
+            return (da_fuzz_regridded.sum(str(dimensions[-1])).sum(str(dimensions[0])))/(da_fuzz_regridded.sum(str(dimensions[-1])).sum(str(dimensions[0]))).sum('tree_depth')
+    else:
+        if not (zonal_int or depth_int):
+            return da_fuzz.sum(str(dimensions[0]))/da_fuzz.sum(str(dimensions[0])).sum('tree_depth')
+        if zonal_int and not depth_int:
+            return (da_fuzz.sum('x').sum(str(dimensions[0])))/(da_fuzz.sum('x').sum(str(dimensions[0]))).sum('tree_depth')
+        if (zonal_int & depth_int):
+            return (da_fuzz.sum('x').sum(str(dimensions[0])))/(da_fuzz.sum('x').sum(str(dimensions[0]))).sum('tree_depth'), \
+                (da_fuzz.sum(str(dimensions[-1])).sum(str(dimensions[0])))/(da_fuzz.sum(str(dimensions[-1])).sum(str(dimensions[0]))).sum('tree_depth')
+        if depth_int and not zonal_int:
+            return (da_fuzz.sum(str(dimensions[-1])).sum(str(dimensions[0])))/(da_fuzz.sum(str(dimensions[-1])).sum(str(dimensions[0]))).sum('tree_depth')
