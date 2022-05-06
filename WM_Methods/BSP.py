@@ -6,26 +6,18 @@ import itertools
 # Define the BSP function that is called and recursively subdivides a 2D distribution
 def calc(x, y, z, depth: int, axis: int = 0, **kwargs):
     """
+    Authors: Taimoor Sohail and Claire Carouge (2022)
     Create a binary space partition tree from a set of point coordinates
-
-    x = np.array([0,1,2,3,4])
-    y = np.array([0,1,2,3,4])
-    z = np.array([0,1,2,3,4])
-    a = np.array([0,1,2,3,4])
-    b = np.array([0,1,2,3,4])
-    c = np.array([0,1,2,3,4])
-    d = np.array([0,1,2,3,4])
-    e = np.array([0,1,2,3,4])
 
     binary_space_partition(x,y,z, depth=0,axis=0, sum=[a,b], mean=[c,d], weight=e)
 
     Args:
         x: x coordinates
         y: y coordinates
-        z: distribution data (e.g. volume)
+        v: distribution data (e.g. volume)
         **kwargs:
-        'sum': variables of interest to integrate in a BSP bin (e.g. total volume/surface area) [max 6]
-        'mean': variables of interest to distribution-weighted average in a BSP bin (e.g. volume-averaged carbon) [max 6]
+        'sum': variables of interest to integrate in a BSP bin (e.g. total volume/surface area)
+        'mean': variables of interest to distribution-weighted average in a BSP bin (e.g. volume-averaged carbon)
         'weight': variable over which to weight the 'mean' variables [max 1]
         depth: maximum tree depth
         axis: initial branch axis
@@ -81,132 +73,14 @@ def calc(x, y, z, depth: int, axis: int = 0, **kwargs):
     if len(mean_vals.shape) == 1:
         print('ERROR: mean variables must be passed as a list of arrays')
         return
-    if sum_vals.shape[0] >6:
-        print('ERROR: Function does not support more than 6 variables to sum. Reduce number of variables to <=6')
-        return
-    if mean_vals.shape[0] >6:
-        print('ERROR: Function does not support more than 6 variables to mean. Reduce number of variables to <=6')
-        return
-
     if len(w.shape) >=2:
         print('ERROR: Function only supports one weight variable. Reduce number of variables to 1')
         print('Current weight variables =', len(w.shape))
         return
     
     ### Calculate diagnostics for sum, mean and weight arrays
-
-    if sum_vals.shape[0] ==6:
-        a = sum_vals[0]
-        b = sum_vals[1]
-        c = sum_vals[2]
-        d = sum_vals[3]
-        e = sum_vals[4]
-        f = sum_vals[5]
-        asum = a.sum()
-        bsum = b.sum()
-        csum = c.sum()
-        dsum = d.sum()
-        esum = e.sum()
-        fsum = f.sum()
-        sum_list = np.array([asum,bsum,csum,dsum,esum,fsum])
-    elif sum_vals.shape[0] ==5:
-        a = sum_vals[0]
-        b = sum_vals[1]
-        c = sum_vals[2]
-        d = sum_vals[3]
-        e = sum_vals[4]
-        asum = a.sum()
-        bsum = b.sum()
-        csum = c.sum()
-        dsum = d.sum()
-        esum = e.sum()
-        sum_list = np.array([asum,bsum,csum,dsum,esum])
-    elif sum_vals.shape[0] ==4:
-        a = sum_vals[0]
-        b = sum_vals[1]
-        c = sum_vals[2]
-        d = sum_vals[3]
-        asum = a.sum()
-        bsum = b.sum()
-        csum = c.sum()
-        dsum = d.sum()
-        sum_list = np.array([asum,bsum,csum,dsum])
-
-    elif sum_vals.shape[0] ==3:
-        a = sum_vals[0]
-        b = sum_vals[1]
-        c = sum_vals[2]
-        asum = a.sum()
-        bsum = b.sum()
-        csum = c.sum()
-        sum_list = np.array([asum,bsum,csum])
-
-    elif sum_vals.shape[0] ==2:
-        a = sum_vals[0]
-        b = sum_vals[1]
-        asum = a.sum()
-        bsum = b.sum()
-        sum_list = np.array([asum,bsum])
-    elif sum_vals.shape[0] ==1:
-        a = sum_vals[0]
-        asum = a.sum()
-        sum_list = np.array([asum])
-
-    if mean_vals.shape[0] ==6:
-        g = mean_vals[0]
-        h = mean_vals[1]
-        i = mean_vals[2]
-        j = mean_vals[3]
-        k = mean_vals[4]
-        l = mean_vals[5]
-        gmean = (g*w).sum()/wsum
-        hmean = (h*w).sum()/wsum
-        imean = (i*w).sum()/wsum
-        jmean = (j*w).sum()/wsum
-        kmean = (k*w).sum()/wsum
-        lmean = (l*w).sum()/wsum
-        mean_list = np.array([gmean,hmean,imean,jmean,kmean,lmean])
-
-    elif mean_vals.shape[0] ==5:
-        g = mean_vals[0]
-        h = mean_vals[1]
-        i = mean_vals[2]
-        j = mean_vals[3]
-        k = mean_vals[4]
-        gmean = (g*w).sum()/wsum
-        hmean = (h*w).sum()/wsum
-        imean = (i*w).sum()/wsum
-        jmean = (j*w).sum()/wsum
-        kmean = (k*w).sum()/wsum
-        mean_list = np.array([gmean,hmean,imean,jmean,kmean])
-    elif mean_vals.shape[0] ==4:
-        g = mean_vals[0]
-        h = mean_vals[1]
-        i = mean_vals[2]
-        j = mean_vals[3]
-        gmean = (g*w).sum()/wsum
-        hmean = (h*w).sum()/wsum
-        imean = (i*w).sum()/wsum
-        jmean = (j*w).sum()/wsum
-        mean_list = np.array([gmean,hmean,imean,jmean])
-    elif mean_vals.shape[0] ==3:
-        g = mean_vals[0]
-        h = mean_vals[1]
-        i = mean_vals[2]
-        gmean = (g*w).sum()/wsum
-        hmean = (h*w).sum()/wsum
-        imean = (i*w).sum()/wsum
-        mean_list = np.array([gmean,hmean,imean])
-    elif mean_vals.shape[0] ==2:
-        g = mean_vals[0]
-        h = mean_vals[1]
-        gmean = (g*w).sum()/wsum
-        hmean = (h*w).sum()/wsum
-        mean_list = np.array([gmean,hmean])
-    elif mean_vals.shape[0] ==1:
-        g = mean_vals[0]
-        gmean = (g*w).sum()/wsum
-        mean_list = np.array([gmean])
+    sum_list = np.nansum(np.array(sum_vals),axis=1)
+    mean_list = np.nansum(np.array(mean_vals)*w,axis=1)/wsum
     
     bounds = (x.min(), x.max(), y.min(), y.max())
     
@@ -239,6 +113,10 @@ def calc(x, y, z, depth: int, axis: int = 0, **kwargs):
     return result
 
 def split(bsp, depth : int):
+    '''
+    Author: Taimoor Sohail (2022)
+    A function which splits the ragged nested list output from the calc function into numpy arrays
+    '''
 
     result_flat = list(itertools.chain(*bsp))
     while (len(result_flat) <= 2**depth):
@@ -252,9 +130,9 @@ def split(bsp, depth : int):
 
 def draw(x,y,z, partitions, edge_color, depth:int, **kwargs):
     """
-    Plot the bounding boxes of binary space partition 'partitions' at 'depth'
+    Author: Taimoor Sohail (2022)
+    Plot the bounding boxes of binary space partitions, as well as a scatter plot of the original distribution used to calculate the BSP bins
     """
-    # Plot this level
     plt.scatter(x,y,1,z, **kwargs)
     for i in range(2**depth):
         plt.gca().add_patch(patches.Rectangle((partitions[i,0], partitions[i,2]), partitions[i,1]-partitions[i,0], partitions[i,3]-partitions[i,2], ec=edge_color, facecolor='none'))

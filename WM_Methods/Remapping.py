@@ -5,8 +5,9 @@ from tqdm import tqdm
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-def remap_3D(T,S, partitions, depth = 1, zonal_int = False, depth_int = False, **kwargs):
+def remap_mask(T,S, partitions, depth = 1, zonal_int = False, depth_int = False, **kwargs):
     '''
+    Author: Taimoor Sohail (2022)
     A function to map watermass locations back into 1x1 degree geographical space.
     Inputs:
     T: a 4-dimensional array in the format (time, latitude, longitude, depth)
