@@ -128,7 +128,11 @@ def optimise(tracers,volumes,cons_matrix,weights):
         for i in range(M-2):
             dtrac_mix[i,:] = np.matmul(G,trac_mixed[i,:])/volumes[0,:]-tracers[0,i+2,:]
 
-    Mix_matrix = np.vstack((dSmix, dTmix, dtrac_mix))
-    Adj_matrix = np.vstack((S_Av_adj, T_Av_adj, trac_Av_adj))
+    if M>2:
+        Mix_matrix = np.vstack((dSmix, dTmix, dtrac_mix))
+        Adj_matrix = np.vstack((S_Av_adj, T_Av_adj, trac_Av_adj))
+    else:
+        Mix_matrix = np.vstack((dSmix, dTmix))
+        Adj_matrix = np.vstack((S_Av_adj, T_Av_adj))
 
     return {'g_ij':G, 'Mixing': Mix_matrix, 'Adjustment': Adj_matrix}
