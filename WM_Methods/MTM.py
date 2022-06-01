@@ -44,14 +44,20 @@ def optimise(tracers,volumes,cons_matrix,weights):
             if cons_matrix[i,j]>0:
                 C1_connec[i,ix] = cons_matrix[i,j] # vertex ix connects from WM i
                 C2_connec[j,ix] = cons_matrix[i,j] # vertex ix connects to WM j
-                Tmatrix[j,ix] = tracers[0,1,i]*weights[1,i] #vertex ix brings temp of WM i to WM j
-                Smatrix[j,ix] = tracers[0,0,i]*weights[0,i] #vertex ix brings temp of WM i to WM j
+                Tmatrix[j,ix] = tracers[0,1,i] #vertex ix brings temp of WM i to WM j
+                Smatrix[j,ix] = tracers[0,0,i] #vertex ix brings temp of WM i to WM j
                 if M>2:
                     trac_matrix[:,j,ix] = tracers[0,2:,i]*weights[2:,i] #vertex ix brings temp of WM i to WM j
                 ix=ix+1
 
     C = np.concatenate((C1_connec,C2_connec),axis=0)
-    A = np.concatenate((Tmatrix,Smatrix),axis=0)
+    A_T = np.zeros_like(Tmatrix)
+    A_S = np.zeros_like(Tmatrix)
+    for i in range(int(nofaces)):
+        A_T[:,i] = Tmatrix[:,i]*weights[1,:]
+        A_S[:,i] = Smatrix[:,i]*weights[0,:]
+
+    A = np.concatenate((A_T,A_S),axis=0)
     b = np.concatenate((volumes[1,:]*tracers[1,1,:]*weights[1,:],\
                     volumes[1,:]*tracers[1,0,:]*weights[0,:]), axis=0)
     b[np.isnan(b)]=0
