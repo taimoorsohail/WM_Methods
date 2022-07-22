@@ -1,0 +1,5 @@
+E:/NEMO-Medusa/u-bi258/am/*carbon*
+E:/NEMO-Medusa/u-bi258/am/*CO2*
+E:/NEMO-Medusa/u-bi258/am/*phys*
+C:/Users/nm455/OneDrive - University of Exeter/UNICORNS/MTM/mask_NEMO*
+C:/Users/nm455/OneDrive - University of Exeter/UNICORNS/MTM/
