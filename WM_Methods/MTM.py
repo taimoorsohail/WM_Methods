@@ -1,7 +1,7 @@
 import cvxpy as cp
 import numpy as np
 
-def optimise(tracers,volumes,cons_matrix,weights):
+def optimise(**kwargs):
     '''
     Author: Taimoor Sohail (2022)
     This function takes matrices of tracers, volumes, weights, and constraints, 
@@ -14,6 +14,8 @@ def optimise(tracers,volumes,cons_matrix,weights):
     For just T and S, M = 2. Other tracers such as carbon may be added to this matrix.
     cons_matrix: A [N X N] matrix defining the connectivity from one 'N' watermass to any other 'N' watermass. 
     The elements in this matrix must be between 0 (no connection) and 1 (fully connected).
+    trans: Set of constraints on inter-basin transport (e.g., we can fix ITF transport to be 15 Sv). Threshold must be provided.
+    Asection: Matrix which defines the section areas across each basin mask. Threshold must be provided.
     weights: An [M x N] matrix defining any tracer-specific weights to scale the transports by watermass, 
     for instance, outcrop surface area, or a T/S scaling factor. 
     Note - The optimiser uses the MOSEK solver, and advanced optimisation software that requires a (free) license. You MUST install MOSEK to use the function. 
@@ -24,12 +26,40 @@ def optimise(tracers,volumes,cons_matrix,weights):
     Adjustment: A matrix comprising the change in tracer due to adjustment from t1 to t2, of size [M x N]
     '''
     
+    ## Break down kwarg inputs
+    A_exists = False
+    trans_exists = False
+    names = list(kwargs.keys())
+    for i in range(np.array(names).size):
+        if names[i] == 'volumes':
+            volumes = np.array(list(kwargs.values())[i])
+        if names[i] == 'tracers':
+            tracers = np.array(list(kwargs.values())[i])
+        if names[i] == 'cons_matrix':
+            cons_matrix = np.array(list(kwargs.values())[i])
+        if names[i] == 'trans':
+            trans_list = np.array(list(kwargs.values())[i])
+            trans = trans_list[0]
+            trans_val = trans_list[1]
+            trans_exists = True
+        if names[i] == 'weights':
+            weights = np.array(list(kwargs.values())[i])
+        if names[i] == 'Asection':
+            Asection_list = np.array(list(kwargs.values())[i])
+            Asection = Asection_list[0]
+            threshold = Asection_list[1]
+            A_exists = True
     ## Define matrices for the linear optimisation
 
     N = volumes.shape[-1]
     M = tracers.shape[1]
 
-    nofaces = np.nansum(cons_matrix)
+    nofaces = np.count_nonzero(cons_matrix)
+    if trans_exists:
+        trans_full = np.zeros(int(nofaces))
+    if A_exists:
+        Asection_full = np.zeros(int(nofaces))
+
     C1_connec=np.zeros((N,int(nofaces)))
     C2_connec=np.zeros((N,int(nofaces)))
     # Also make T and S matrix with the T(k,i) the temp of the ith early WM
@@ -37,13 +67,16 @@ def optimise(tracers,volumes,cons_matrix,weights):
     Smatrix=np.zeros((N,int(nofaces)))
     if M>2:
         trac_matrix = np.zeros((M-2,N,int(nofaces)))
-
     ix=0
     for i in (range(N)):
         for j in range(N):
             if cons_matrix[i,j]>0:
                 C1_connec[i,ix] = cons_matrix[i,j] # vertex ix connects from WM i
                 C2_connec[j,ix] = cons_matrix[i,j] # vertex ix connects to WM j
+                if trans_exists:
+                    trans_full[ix] = trans[i,j]
+                if A_exists:
+                    Asection_full[ix] = Asection[i,j]
                 Tmatrix[j,ix] = tracers[0,1,i] #vertex ix brings temp of WM i to WM j
                 Smatrix[j,ix] = tracers[0,0,i] #vertex ix brings temp of WM i to WM j
                 if M>2:
@@ -70,8 +103,15 @@ def optimise(tracers,volumes,cons_matrix,weights):
     x = cp.Variable(u)
 
     cost = cp.sum_squares(A@x-b)
+    if trans_exists==True and A_exists==False:
+        constraints = [C@x==d, x>=0, cp.sum(x*trans_full.flatten())==trans_val]
+    if trans_exists==True and A_exists==True:
+        constraints = [C@x==d, x>=0, cp.sum(x*trans_full.flatten())==trans_val, x/Asection_full.flatten()<=threshold]
+    if trans_exists==False and A_exists==True:
+        constraints = [C@x==d, x>=0, x/Asection_full.flatten()<=threshold]
+    if trans_exists==False and A_exists==False:
+        constraints = [C@x==d, x>=0]
 
-    constraints = [C@x==d, x>=0]
     prob = cp.Problem(cp.Minimize(cost), constraints)
 
     # The optimal objective value is returned by prob.solve()`.
