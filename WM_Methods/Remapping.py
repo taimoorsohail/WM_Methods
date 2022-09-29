@@ -5,7 +5,7 @@ from tqdm import tqdm
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-def remap_mask(T,S, partitions, depth = 1, zonal_int = False, depth_int = False, interp = True, **kwargs):
+def remap_mask(T,S,ds, partitions, depth = 1, zonal_int = False, depth_int = False, interp = True, **kwargs):
     '''
     Author: Taimoor Sohail (2022)
     A function to create masks which map watermass locations back into 1x1 degree geographical space.
@@ -57,7 +57,7 @@ def remap_mask(T,S, partitions, depth = 1, zonal_int = False, depth_int = False,
                                     1, 0)
             if interp:
                 ## Regrid output to a 1x1 grid using bilinear interpolation
-                regridder_da_fuzz = xesmf.Regridder(da_fuzz, ds_out, 'bilinear', periodic=True)
+                regridder_da_fuzz = xesmf.Regridder(ds, ds_out, 'bilinear', periodic=True)
                 da_fuzz_regridded = regridder_da_fuzz(da_fuzz)
     
     ## Depending on the flags, output a 3D mask file, or a zonally or depth-integrated mask file, for all bins. 
