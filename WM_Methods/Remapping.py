@@ -22,6 +22,7 @@ def remap_mask(T,S,ds, partitions, depth = 1, zonal_int = False, depth_int = Fal
     zonal_int: Boolean flag, if True the zonally integrated mask is produced (False by default)
     depth_int: Boolean flag, if True the depth-integrated mask is produced (False by default) 
     interp: Boolean flag, if True the output is interpolated onto a 1x1 horizontal grid (True by default)
+    ds: the xarray.Dataset() containing the T or S information. This is required only if interp = True
 
     dims: A list of strings representing the dimension names in the order 
     ['time', 'latitude', 'longitude', 'depth']
