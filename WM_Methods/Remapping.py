@@ -127,10 +127,10 @@ def remap_tracer(T,S, partitions, tracer, depth = 1, interp = True, **kwargs):
     tracer_int = 0
     for i in tqdm(range(T.shape[0])):
         for j in (range(2**depth)):
-            tmp = xr.where((S.isel(time=i)>partitions[i,j,0])&\
-                                    (T.isel(time=i)>partitions[i,j,2])&\
-                                    (S.isel(time=i)<=partitions[i,j,1])&\
-                                    (T.isel(time=i)<=partitions[i,j,3]),\
+            tmp = xr.where((T.isel(time=i)>partitions[i,j,0])&\
+                                    (S.isel(time=i)>partitions[i,j,2])&\
+                                    (T.isel(time=i)<=partitions[i,j,1])&\
+                                    (S.isel(time=i)<=partitions[i,j,3]),\
                                     tracer[i,j], 0)
             tracer_int = tracer_int+tmp
     if interp:
